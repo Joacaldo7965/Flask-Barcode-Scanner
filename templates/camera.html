@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Display Webcam Stream</title>
+<script src="https://cdn.socket.io/4.0.1/socket.io.min.js"></script>
+ 
+<style>
+#container {
+	margin: 0px auto;
+	width: 500px;
+	height: 375px;
+	border: 10px #333 solid;
+}
+#videoElement {
+	width: 500px;
+	height: 375px;
+	background-color: #666;
+}
+</style>
+</head>
+ 
+<body>
+<div id="container">
+	<video autoplay="true" id="videoElement">
+	
+	</video>
+</div>
+<!-- <button onclick="init_camera()">Start</button> -->
+<button onclick="stop_camera()">Stop</button>
+<script>
+
+var socket = io.connect('https://192.168.1.13:5000', {secure: true});
+var video = document.getElementById('videoElement');
+
+// Check if getUserMedia is supported
+if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then(function(stream) {
+                    // Set the video stream as the source for the existing video element
+                    video.srcObject = stream;
+                    video.play();
+                    
+                    // Function to capture and send a frame
+                    function captureAndSendFrame() {
+                        var canvas = document.createElement('canvas');
+                        canvas.width = video.videoWidth;
+                        canvas.height = video.videoHeight;
+                        var context = canvas.getContext('2d');
+                        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                        var imageData = canvas.toDataURL('image/jpeg'); // Convert image to base64 data URL
+                        var binaryData = atob(imageData.split(',')[1]); // Convert base64 to binary
+                        var arrayBuffer = new ArrayBuffer(binaryData.length);
+                        var byteArray = new Uint8Array(arrayBuffer);
+                        for (var i = 0; i < binaryData.length; i++) {
+                            byteArray[i] = binaryData.charCodeAt(i);
+                        }
+                        socket.emit('frame', byteArray); // Send frame to the server
+                    }
+
+                    // Capture and send a frame every 1 second
+                    setInterval(captureAndSendFrame, 200);
+                })
+                .catch(function(error) {
+                    console.log("Something went wrong:", error);
+                });
+        }
+
+function stop_camera(e) {
+	var video = document.querySelector("#videoElement");
+	var stream = video.srcObject;
+	var tracks = stream.getTracks();
+
+	for (var i = 0; i < tracks.length; i++) {
+	var track = tracks[i];
+	track.stop();
+	}
+
+	video.srcObject = null;
+}
+</script>
+</body>
+</html>
